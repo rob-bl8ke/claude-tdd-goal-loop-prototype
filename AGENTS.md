@@ -1,305 +1,128 @@
 # TDD Goal Loop Workflow
 
-> **⚠️ The orchestration model below is SUPERSEDED. To run the loop, follow
-> `.claude/agents/tdd-goal-coordinator.md`.**
->
-> Four agents described here — `red-verifier`, `green-verifier`, `slice-verifier`,
-> `slice-planner` — plus the coordinator-as-subagent pattern have been **retired**. They were
-> LLMs doing `grep`. Verification is now a deterministic shell gate: `lab/tdd-gate.sh`.
->
-> Measured on this repo, same spec and same 10 passing tests: **713k → 317k tokens**, five
-> hallucinated test names → zero, and three real gaps found that the agent-based verifiers
-> had rubber-stamped.
->
-> Still live: `test-writer`, `code-writer`, `goal-evaluator` (the last one runs **once**, at
-> the end). Sections 4, 5, 7 and the Planner section below are retained for historical
-> reference only and no longer describe how this repo works.
-
-This document defines the complete TDD Goal Loop workflow, agent responsibilities, and orchestration flow for implementing features using test-driven development with AI agents.
+How this repo implements features test-first. This document is the **what and why**; for the
+step-by-step operating procedure — exact commands and prompt templates — see
+[`.claude/agents/tdd-goal-coordinator.md`](.claude/agents/tdd-goal-coordinator.md), which is
+the entry point for a run.
 
 ---
 
-## Workflow Overview
+## The model
 
-The TDD Goal Loop is a structured, agent-based workflow that ensures test-driven development discipline is maintained throughout feature implementation. The workflow proceeds through vertical slices, with each slice implementing a single acceptance criterion from the specification.
+Work proceeds in **vertical slices**: one slice implements exactly one acceptance criterion
+from `spec.md`. Within a slice the cycle is red → green, and neither step is taken on trust.
 
-**Key Principles:**
-- One slice implements one acceptance criterion
-- Red-Green-Refactor cycle enforced by verification agents
-- No code is written until a failing test exists
-- No test is written without planning
-- Each step must be verified before proceeding
+1. **`test-writer`** (agent) writes failing tests for the criterion. It never writes production code.
+2. **`lab/tdd-gate.sh red "<expected>"`** asserts the tests compile, that at least one fails,
+   and that it fails *for the stated reason* — so a test failing on a typo instead of on its
+   assertion is caught rather than celebrated.
+3. **`code-writer`** (agent) writes the minimum production code to pass those failures, and nothing more.
+4. **`lab/tdd-gate.sh green`** asserts zero failures and that the suite did not shrink.
+5. **`lab/tdd-gate.sh done <n>`** records the slice in `lab/state.json` and `lab/evidence.md`.
 
----
+After the final slice, **`goal-evaluator`** (agent) runs **once** as an adversarial audit.
 
-## Agent Responsibilities
+**Principles**
 
-The workflow involves **8 specialized agents**, each with a distinct responsibility:
-
-### 1. Orchestrator
-
-**Purpose:** Coordinate the overall TDD Goal Loop workflow and ensure proper sequencing
-
-**Responsibilities:**
-- Load the specification and determine the slice sequence
-- Invoke agents in the correct order
-- Manage the goal loop (repeat until all acceptance criteria are implemented)
-- Capture execution evidence and audit trail
-- Handle errors and workflow deviations
-
-**Invocation:** Entry point for the entire workflow
+- One slice, one acceptance criterion.
+- No production code until a failing test exists.
+- Verification is deterministic — a shell command and a regex, never an LLM's opinion.
+- Judgement gets an agent; facts get a script.
+- A failing gate stops the loop for a human. No automatic retries, and never edit a test to make it pass.
 
 ---
 
-### 2. Planner
+## Division of labour
 
-**Purpose:** Analyze the current slice's acceptance criterion and create a test plan
+### Judgement — these are agents
 
-**Responsibilities:**
-- Read the acceptance criterion from SPEC.md
-- Identify test cases needed to fully verify the criterion
-- Create a test list (3-7 test cases in plain English)
-- Determine the order of test implementation (simplest first)
-- Output the test plan for the test-writer
+| Agent | Runs | Responsibility |
+|---|---|---|
+| `test-writer` | once per slice | Turn one acceptance criterion into failing tests. Never touches production code. |
+| `code-writer` | once per slice | Minimum code to pass the supplied failures. Never implements a future slice's concerns. |
+| `goal-evaluator` | once per run, at the end | Adversarially audit the implementation against `spec.md`. Verifies by mutation testing, not by reading. |
 
-**Invocation:** Called by orchestrator at the start of each slice
+Context isolation is the point, not a side effect. `test-writer` cannot see production code,
+so it cannot write a test that trivially passes. `code-writer` sees only the failure output,
+so it cannot over-build. Each agent is given its criterion inline and told not to read
+`spec.md`, `AGENTS.md`, `lab/evidence.md` or `lab/expected-slices.md` — which reliably
+prevents scope creep.
 
-**Output Example:**
-```
-Slice 1 Test Plan (Acceptance Criterion 1: Sum basket item totals)
-1. Single item basket calculates correct subtotal
-2. Multiple items basket sums all item totals
-3. Large quantity values calculate correctly
-```
+### Facts — this is a script
 
----
+[`lab/tdd-gate.sh`](lab/tdd-gate.sh) — `reset | red "<expected>" | green | done <n> "<files>"`
 
-### 3. Test-Writer
+It runs `mvn test`, parses surefire's summary, compares counts, and exits 1 with a reason on
+failure. It cannot invent a test name it did not see in real output.
 
-**Purpose:** Write the next failing test from the planner's test list
+### Orchestration — this is the main context
 
-**Responsibilities:**
-- Take the next test case from the planner's test list
-- Write a JUnit test using AssertJ assertions and BDD structure (GIVEN/WHEN/THEN comments)
-- Follow `should...When` naming convention and `@DisplayName` annotations
-- Ensure the test will fail (expect red)
-- Commit only the test code (no production code yet)
+The driver reads `lab/state.json`, picks the first slice where `done` is `false`, and runs
+the five steps. Selecting a slice is `slices.find(s => !s.done)`, not an agent call.
 
-**Invocation:** Called by orchestrator after planner, or after green-verifier completes a cycle
-
-**Output:** A single failing test method
-
-**Constraints:**
-- Test must compile (may use stubs/mocks for non-existent production code)
-- Test must fail when run (verifies red state)
-- No production code changes allowed
+**Do not spawn a coordinator subagent.** A subagent stops at the end of every turn, so it
+cannot loop; orchestrating from one costs a full context round-trip per step and buys no
+autonomy.
 
 ---
 
-### 4. Red-Verifier
+## What was removed, and why
 
-**Purpose:** Confirm the test fails as expected (Red phase)
+Four agents were deleted from this repo: `red-verifier`, `green-verifier`, `slice-verifier`,
+`slice-planner`. Each reduced to running `mvn test` and comparing numbers — deterministic
+work handed to a non-deterministic component.
 
-**Responsibilities:**
-- Run the test suite (e.g., `mvn test`)
-- Verify the new test fails with the expected failure message
-- Confirm existing tests still pass (no regressions)
-- Report red status to orchestrator
+Measured on this repo, same spec, same 10 passing tests:
 
-**Invocation:** Called by orchestrator immediately after test-writer
+| | 8-agent version | 3-agent + gate version |
+|---|---|---|
+| verification + orchestration | ~496k tokens | ~2k tokens |
+| whole run | **~713k tokens** | **~317k tokens** |
+| hallucinated test names | 5 invented | 0 |
+| wrong file paths reported | yes | 0 |
+| real gaps found | 0 | 3 |
 
-**Success Criteria:**
-- New test fails ❌
-- Existing tests pass ✅
-- Failure message matches expectation
+The agent-based verifiers were not merely expensive — they were less accurate than `grep`,
+and they rubber-stamped three genuine test-coverage gaps that the single adversarial audit
+later caught by mutation testing.
 
-**Failure Actions:**
-- If new test passes: Alert orchestrator (test is not properly written)
-- If existing tests fail: Alert orchestrator (regression detected)
-
----
-
-### 5. Code-Writer
-
-**Purpose:** Write minimal production code to make the failing test pass
-
-**Responsibilities:**
-- Analyze the failing test
-- Write the simplest production code to pass the test (Fake It, Triangulate, or Obvious Implementation)
-- Follow language-specific standards (Java 21, Spring Boot)
-- Avoid premature optimization or over-engineering
-- Commit production code changes
-
-**Invocation:** Called by orchestrator after red-verifier confirms red state
-
-**Output:** Minimal production code that addresses the failing test
-
-**Constraints:**
-- Only write code needed to pass the current failing test
-- No "while we're here" changes
-- No refactoring (wait for green first)
+Note that the savings came from **deleting agents doing deterministic work**, not from prompt
+engineering. Inlining context made the two productive agents ~11% *more* expensive per run
+while cutting their tool calls from 12 to 3–4 and eliminating scope creep. Worth knowing
+before optimising prompts in search of the next win.
 
 ---
 
-### 6. Green-Verifier
+## Conventions
 
-**Purpose:** Confirm all tests pass (Green phase)
+**Tests** — JUnit 5 with MockMvc; `should<Expected>When<Condition>` method naming plus
+`@DisplayName`; GIVEN / WHEN / THEN comments in each body. A test must compile before its
+production code exists, which is achieved by posting raw JSON string literals and asserting
+with `jsonPath` so no production type is referenced.
 
-**Responsibilities:**
-- Run the full test suite (e.g., `mvn test`)
-- Verify all tests pass, including the new one
-- Confirm build succeeds
-- Report green status to orchestrator
+**Production code** — Java 21, Spring Boot 3.5.11. Records for DTOs, constructor injection,
+thin controllers with logic in services, custom exceptions plus `@ExceptionHandler` for
+validation errors. `long` for money.
 
-**Invocation:** Called by orchestrator after code-writer
-
-**Success Criteria:**
-- All tests pass ✅
-- Build succeeds ✅
-
-**Failure Actions:**
-- If tests fail: Alert orchestrator (code-writer must fix)
-- If build fails: Alert orchestrator (compilation error)
-
-**Next Step:**
-- If more tests remain in the test plan: Return to test-writer for next test (Red-Green-Refactor loop)
-- If all tests for the slice are complete: Proceed to slice-verifier
+**Build** — always pass `clean` to `mvn`; incremental `test-compile` can report "Nothing to
+compile" after a fresh edit due to filesystem timestamp granularity.
 
 ---
 
-### 7. Slice-Verifier
+## State and evidence
 
-**Purpose:** Confirm the acceptance criterion for the current slice is fully implemented
+- **`lab/state.json`** — machine-readable. Which slices are done, current suite size. This is
+  what the driver reads.
+- **`lab/evidence.md`** — human-readable append-only audit trail, written by the gate. **No
+  agent reads this file.** Keeping narrative out of the control path is deliberate: the
+  previous design used a growing prose log as its state machine and paid ~85k tokens per run
+  to re-interpret it.
+- **`lab/expected-slices.md`** — the predefined slice sequence, used to seed `state.json`.
 
-**Responsibilities:**
-- Review the acceptance criterion from SPEC.md
-- Verify all test cases from the planner's test list are implemented
-- Run integration checks if needed (e.g., API endpoint exists, returns correct status codes)
-- Confirm slice deliverables are complete
-- Report slice completion to orchestrator
+## Exit conditions
 
-**Invocation:** Called by orchestrator after green-verifier when all tests for a slice are complete
-
-**Success Criteria:**
-- All planned tests implemented ✅
-- All tests pass ✅
-- Acceptance criterion verified ✅
-
-**Failure Actions:**
-- If criterion not fully verified: Report missing coverage to orchestrator
-
----
-
-### 8. Goal-Evaluator
-
-**Purpose:** Determine if all acceptance criteria are implemented or if more slices are needed
-
-**Responsibilities:**
-- Review the full specification (SPEC.md)
-- Check which acceptance criteria are complete
-- Determine if the goal (implement all criteria 1-3) is achieved
-- Report final status to orchestrator
-
-**Invocation:** Called by orchestrator after slice-verifier completes a slice
-
-**Decision:**
-- If all criteria complete: Workflow ends (goal achieved) ✅
-- If criteria remain: Orchestrator proceeds to next slice ➡️
-
-**Output:** Final completion report with summary of implemented criteria
-
----
-
-## Orchestration Flow
-
-```
-START
-  ↓
-[Orchestrator] Load SPEC.md, determine slices
-  ↓
-┌─────────────────────────────────────────┐
-│ GOAL LOOP (repeat for each slice)      │
-│                                         │
-│  [Planner] Create test plan for slice  │
-│     ↓                                   │
-│  ┌────────────────────────────────┐    │
-│  │ TDD CYCLE (for each test)      │    │
-│  │                                 │    │
-│  │  [Test-Writer] Write test      │    │
-│  │     ↓                           │    │
-│  │  [Red-Verifier] Confirm red ❌ │    │
-│  │     ↓                           │    │
-│  │  [Code-Writer] Write code      │    │
-│  │     ↓                           │    │
-│  │  [Green-Verifier] Confirm ✅   │    │
-│  │     ↓                           │    │
-│  │  More tests? → loop back        │    │
-│  └────────────────────────────────┘    │
-│     ↓                                   │
-│  [Slice-Verifier] Verify criterion ✅  │
-│     ↓                                   │
-│  [Goal-Evaluator] All done?            │
-│     ↓                                   │
-│  No → next slice, loop back            │
-│  Yes → END ✅                           │
-└─────────────────────────────────────────┘
-```
-
----
-
-## Invocation Instructions
-
-### For Manual Execution
-
-1. **Start the workflow:**
-   ```
-   Invoke orchestrator with: "Implement basket quote API per SPEC.md using TDD Goal Loop"
-   ```
-
-2. **Orchestrator will:**
-   - Read SPEC.md
-   - Read lab/expected-slices.md to determine slice sequence
-   - Begin Slice 1 (Criterion 1) by invoking planner
-
-3. **Each agent will:**
-   - Execute its responsibility
-   - Report status/output to orchestrator
-   - Wait for orchestrator to invoke the next agent
-
-4. **Evidence capture:**
-   - Orchestrator logs each agent invocation, output, and verification result to `lab/evidence.md`
-   - Format: `## Slice N: [Title]` with subsections for each agent call
-
-### For Automated Execution
-
-Use the orchestrator agent with the TDD Goal Loop skill:
-```bash
-# Invoke via agent framework
-invoke-agent orchestrator --goal "Implement SPEC.md criteria 1-3 with TDD Goal Loop"
-```
-
----
-
-## Exit Conditions
-
-**Success:** All acceptance criteria (1-3) from SPEC.md are implemented, all tests pass, goal-evaluator reports completion
-
-**Failure/Pause:**
-- Red-verifier detects test passes when it should fail
-- Green-verifier detects tests fail after code-writer
-- Slice-verifier detects criterion not fully covered
-- Any agent encounters an error (compilation failure, missing file, etc.)
-
-In all failure cases, orchestrator pauses and reports the issue for manual intervention.
-
----
-
-## Evidence Audit Trail
-
-All workflow execution is captured in `lab/evidence.md` with structured format:
-- Timestamp of each agent invocation
-- Agent name and input
-- Agent output/decision
-- Verification status (✅ or ❌)
-
-This provides a complete audit trail of the TDD process for team review and demonstration.
+- **Goal met** — every slice `done`, `mvn test` green, and the final audit confirms each
+  criterion is exercised by a test that genuinely fails when its production code is broken.
+- **Gate failure** — stop, report, wait for a human.
+- **Impossible** — a criterion cannot be satisfied as specified. Stop and report; do not
+  reinterpret the spec to make it pass.
