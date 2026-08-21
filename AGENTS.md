@@ -1,5 +1,20 @@
 # TDD Goal Loop Workflow
 
+> **⚠️ The orchestration model below is SUPERSEDED. To run the loop, follow
+> `.claude/agents/tdd-goal-coordinator.md`.**
+>
+> Four agents described here — `red-verifier`, `green-verifier`, `slice-verifier`,
+> `slice-planner` — plus the coordinator-as-subagent pattern have been **retired**. They were
+> LLMs doing `grep`. Verification is now a deterministic shell gate: `lab/tdd-gate.sh`.
+>
+> Measured on this repo, same spec and same 10 passing tests: **713k → 317k tokens**, five
+> hallucinated test names → zero, and three real gaps found that the agent-based verifiers
+> had rubber-stamped.
+>
+> Still live: `test-writer`, `code-writer`, `goal-evaluator` (the last one runs **once**, at
+> the end). Sections 4, 5, 7 and the Planner section below are retained for historical
+> reference only and no longer describe how this repo works.
+
 This document defines the complete TDD Goal Loop workflow, agent responsibilities, and orchestration flow for implementing features using test-driven development with AI agents.
 
 ---
