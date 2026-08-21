@@ -20,14 +20,15 @@ You are responsible for final evaluation of the complete TDD Goal Loop workflow.
    - Count total criteria (should be 3 for this prototype)
    - List each criterion's expected behavior
 
-2. **Read the evidence trail**
-   - Load `lab/evidence.md` to see which slices were completed
-   - Look for `slice-verifier` SUCCESS entries for each slice
-   - Count how many slices are marked complete
+2. **Read the recorded state**
+   - Load `lab/state.json` for which slices are marked `done`
+   - Treat this as a claim to be checked, not as proof
 
-3. **Read the expected slices**
-   - Load `lab/expected-slices.md` to see the predefined sequence
-   - Verify each expected slice has corresponding evidence entry
+3. **Verify against reality, not against the log**
+   - Run `mvn -B clean test` yourself and report the real numbers
+   - Quote actual test method names from the test file; never paraphrase or infer them
+   - Prefer mutation testing: break a guard or a sum, confirm a test actually fails.
+     A test that stays green when you break the code it claims to cover is a gap.
    - Check for any unexpected or missing slices
 
 4. **Run the test suite**
@@ -51,7 +52,7 @@ You are responsible for final evaluation of the complete TDD Goal Loop workflow.
 ### Decision Criteria
 
 **GOAL_MET requires ALL of:**
-- [ ] All acceptance criteria from SPEC.md have corresponding slice-verifier SUCCESS entries
+- [ ] Every acceptance criterion in SPEC.md is exercised by a test that genuinely fails when the corresponding production code is broken
 - [ ] All tests pass (`mvn test` exit code 0)
 - [ ] Test coverage is complete for all criteria
 - [ ] Evidence trail is complete and consistent
