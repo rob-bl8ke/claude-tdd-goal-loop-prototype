@@ -107,8 +107,9 @@ Orchestrator → Planner → Test-Writer → Red-Verifier → Code-Writer → Gr
 3. Point out the **RED ✅ → GREEN ✅** gate line for the slice
 4. Stress that both were asserted by `lab/tdd-gate.sh`, not reported by an LLM — the entry
    is written by a shell script that parses real `mvn test` output
-5. Point out the **suite count** growing (4 → 6 → 10), which is how the gate detects
-   deleted or silently skipped tests
+5. Point out the **suite count** growing (4 → 6 → 10) — the count is of *executed* tests,
+   so the gate catches both deleted tests (count shrinks) and disabled ones (a non-zero
+   `Skipped` fails the gate outright)
 6. Scroll to **Slice 2** and **Slice 3** to show the pattern repeats
 7. Emphasize: "This evidence proves we never wrote code before a failing test existed —
    and the proof is a script's exit code, not a model's summary"
