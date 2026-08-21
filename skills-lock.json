@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "code-review": {
+      "source": "rob-bl8ke/agent-skills",
+      "sourceType": "github",
+      "computedHash": "d501b88c93471dcae7584b06b26d9702e4414fa89acf9103e775774e2135f4f8"
+    },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -12,14 +17,19 @@
       "computedHash": "4fa026e5979770347b3357ff5139e1e41d21c3a9f7335e9cd2811cb5b8d32f2f"
     },
     "java-21-springboot-standards": {
-      "source": "rob-bl8ke/copilot-ai-brain",
+      "source": "rob-bl8ke/agent-skills",
       "sourceType": "github",
-      "computedHash": "1a39f1d69b89053c46df400fedc0796451565c5769725213efb02d7186536ded"
+      "computedHash": "27a3767cdb7a996109ba18a0d70fe2b671a2b7d277256627c0a79ad6d570558a"
     },
     "java-21-standards": {
-      "source": "rob-bl8ke/copilot-ai-brain",
+      "source": "rob-bl8ke/agent-skills",
       "sourceType": "github",
       "computedHash": "04e0bc45c6f5c17604f0ef452157f6fa5aaf09d4a648bbc95b5593fd0758e91d"
+    },
+    "tdd-by-example": {
+      "source": "rob-bl8ke/agent-skills",
+      "sourceType": "github",
+      "computedHash": "68f4d1a42409e746aec8e9459f54477485957779ea3b3908779b98baa0054d0b"
     }
   }
 }
