@@ -26,6 +26,11 @@
       "sourceType": "github",
       "computedHash": "04e0bc45c6f5c17604f0ef452157f6fa5aaf09d4a648bbc95b5593fd0758e91d"
     },
+    "java-springboot-unit-tests": {
+      "source": "rob-bl8ke/agent-skills",
+      "sourceType": "github",
+      "computedHash": "cc707b087273f22e5de9c829c360f0fd4bea981b59d3a24cab1781bb46dc162a"
+    },
     "tdd-by-example": {
       "source": "rob-bl8ke/agent-skills",
       "sourceType": "github",
