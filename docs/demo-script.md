@@ -104,12 +104,14 @@ Orchestrator → Planner → Test-Writer → Red-Verifier → Code-Writer → Gr
 
 1. Open [lab/evidence.md](../lab/evidence.md)
 2. Scroll to **Slice 1** section
-3. Point out the **test-writer** output (shows test name)
-4. Point out the **red-verifier** output (confirms test failed ❌)
-5. Point out the **code-writer** output (describes implementation)
-6. Point out the **green-verifier** output (confirms test passed ✅)
-7. Scroll to **Slice 2** and **Slice 3** to show the pattern repeats
-8. Emphasize: "This evidence proves we never wrote code before a failing test existed"
+3. Point out the **RED ✅ → GREEN ✅** gate line for the slice
+4. Stress that both were asserted by `lab/tdd-gate.sh`, not reported by an LLM — the entry
+   is written by a shell script that parses real `mvn test` output
+5. Point out the **suite count** growing (4 → 6 → 10), which is how the gate detects
+   deleted or silently skipped tests
+6. Scroll to **Slice 2** and **Slice 3** to show the pattern repeats
+7. Emphasize: "This evidence proves we never wrote code before a failing test existed —
+   and the proof is a script's exit code, not a model's summary"
 
 ---
 
