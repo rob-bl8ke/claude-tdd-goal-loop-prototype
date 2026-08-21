@@ -1,0 +1,9 @@
+{
+  "goal": "Basket Quote API — spec.md acceptance criteria 1-3",
+  "testCount": 0,
+  "slices": [
+    { "n": 1, "title": "Sum basket item totals", "done": false },
+    { "n": 2, "title": "Reject empty baskets", "done": false },
+    { "n": 3, "title": "Reject items with non-positive quantity or unitPriceCents", "done": false }
+  ]
+}
