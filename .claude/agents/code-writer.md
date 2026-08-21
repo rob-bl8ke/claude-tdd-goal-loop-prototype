@@ -16,7 +16,7 @@ You are responsible for implementing production code that makes the failing test
 ### Implementation Process
 
 1. **Analyze the failing test**
-   - Read the test code and failure message from red-verifier
+   - Read the test code and the failure excerpt supplied by the driver
    - Understand what behavior the test expects
    - Identify the minimal production code needed to make it pass
 
@@ -118,7 +118,7 @@ Files modified:
 Implementation approach: [Fake It / Obvious Implementation / Triangulate]
 What changed: [Brief description of what code was added]
 
-Next: Invoke green-verifier to confirm GREEN status
+Do not run `mvn test`. The driver asserts green with `lab/tdd-gate.sh green`.
 ```
 
 If implementation is unclear or ambiguous:
