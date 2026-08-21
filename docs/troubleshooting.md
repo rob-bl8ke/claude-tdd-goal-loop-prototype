@@ -173,7 +173,7 @@ Red-verifier agent reports:
    - Is the test asserting something trivial (e.g., `1 + 1 == 2`)?
 
 2. **Revert production code:**
-   - If code-writer ran before red-verifier, undo those changes
+   - If code-writer ran before the red gate passed, undo those changes
    - Ensure test-writer output is committed **before** code-writer runs
 
 3. **Manual verification:**
@@ -212,9 +212,12 @@ Green-verifier reports:
    - Fix the implementation to pass the test
    - Commit the fix
 
-3. **Re-run green-verifier:**
-   - After manual fix, invoke green-verifier again
-   - Confirm all tests pass before proceeding to next test
+3. **Re-run the green gate:**
+   ```bash
+   ./lab/tdd-gate.sh green
+   ```
+   - It exits 1 and prints the still-failing assertions until the code is correct
+   - Confirm all tests pass before proceeding to the next slice
 
 4. **Common bugs:**
    - **Off-by-one errors** in calculations
@@ -248,7 +251,7 @@ Slice-verifier reports:
 3. **Add missing tests:**
    - Invoke test-writer for each missing test case
    - Follow Red-Green cycle for each new test
-   - Re-run slice-verifier after all tests added
+   - Re-run `./lab/tdd-gate.sh green` after all tests are added
 
 4. **Update expected-slices.md:**
    - If test plan was incomplete, update [lab/expected-slices.md](../lab/expected-slices.md)
@@ -361,9 +364,12 @@ Evidence file exists but has no agent invocation records
      Status: ❌ Test failed as expected
      ```
 
-3. **Re-run slice-verifier:**
-   - After manual evidence entry, invoke slice-verifier
-   - It should append to the file, not overwrite
+3. **Re-record the slice:**
+   ```bash
+   ./lab/tdd-gate.sh done <n> "<files touched>"
+   ```
+   - The gate appends to `lab/evidence.md`; it never overwrites
+   - It reads the suite size from `lab/state.json`, so run it after the green gate
 
 ---
 
