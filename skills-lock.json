@@ -26,6 +26,11 @@
       "sourceType": "github",
       "computedHash": "04e0bc45c6f5c17604f0ef452157f6fa5aaf09d4a648bbc95b5593fd0758e91d"
     },
+    "java-springboot-rest-client": {
+      "source": "rob-bl8ke/agent-skills",
+      "sourceType": "github",
+      "computedHash": "79fd685fec0ebf099a98651ab7db89f10a8193ff30bc81680d25cf465b2e6ab3"
+    },
     "java-springboot-unit-tests": {
       "source": "rob-bl8ke/agent-skills",
       "sourceType": "github",
@@ -35,6 +40,11 @@
       "source": "rob-bl8ke/agent-skills",
       "sourceType": "github",
       "computedHash": "68f4d1a42409e746aec8e9459f54477485957779ea3b3908779b98baa0054d0b"
+    },
+    "to-github-issues": {
+      "source": "rob-bl8ke/agent-skills",
+      "sourceType": "github",
+      "computedHash": "dfcaab086db723654bed384b61311bffe9af829621ed7bccac95a829e023c427"
     }
   }
 }
