@@ -79,3 +79,84 @@ The genuine value of the multi-agent structure survives intact, because it was n
 One cheap fix worth applying regardless of the above: give every remaining agent a **structured output schema** instead of letting it return prose. `{status, testsRun, failures, failingTests[]}` would have cut report sizes ~10x *and* made the hallucinated test names impossible.
 
 Want me to rebuild the loop this way and re-run it against the same spec so you get a real before/after number?
+
+---
+
+Yes
+
+---
+
+Let me check what state the repo is in now.
+
+Clean revert — only `Application.java` remains. Let me read what I need to build the new driver.
+
+Everything I need. Now let me build the new architecture. First, the deterministic gate that replaces four agents:
+
+Gate is live. Now the loop — Slice 1, test-writer with context pushed down (criterion inlined, no repo reading):
+
+Now the RED gate — deterministic, ~500 tokens instead of a 29k agent:
+
+RED gate passed for ~400 tokens (vs 29,394 for the red-verifier agent). Now code-writer, fed the actual failure output:
+
+Slice 1 done. Slice 2 — note I now pass the *existing* test names down so the agent doesn't need to read the file to avoid collisions:
+
+Slice 3 — last one:
+
+All three slices green. Now the one genuine judgment call — a single adversarial audit against the spec:
+
+That audit earned its keep — it ran mutation testing and found three real gaps. It also caught a bug in my gate script. Let me look:
+
+Confirmed — my `grep -A1` pulled the following slice's title in. Fixing both the script and the emitted file:
+
+Rebuilt and re-run from scratch. Same spec, same outcome (10/10 green), and here is the honest accounting.
+
+## Before / after
+
+| Layer | Before | After | Change |
+|---|---|---|---|
+| Orchestration — coordinator + slice-planner | 142k | ~0 | **eliminated** |
+| Verification — red, green, slice, goal | 354k | 77k | **−78%** |
+| Productive — test-writer + code-writer | 217k | 240k | **+11%** |
+| **Total** | **713k** | **~317k** | **−55% (2.2×)** |
+
+**I predicted 5×. I got 2.2×.** Worth being precise about where I was wrong: I claimed pushing context down would cut the productive agents' cost. It didn't — it went *up* 11%. My inlined criteria run 700–900 tokens per prompt, replacing file reads that were cheaper than I estimated; the agents still must read the existing test file and production code (the dominant, irreducible read); and each agent's own `.md` system prompt is ~4k of fixed overhead I never touched.
+
+What push-down *did* buy, measurably: test-writer tool calls dropped 12 → 4/4/3, and every code-writer explicitly refused to implement later slices' validation. Zero scope creep.
+
+**The real lesson: the savings came from deleting agents that were doing deterministic work, not from prompt engineering.** Six agent roles collapsed into [lab/tdd-gate.sh](lab/tdd-gate.sh) — ~400 tokens per gate instead of ~30k.
+
+## Quality went up, which matters more
+
+| | Before | After |
+|---|---|---|
+| Hallucinated test names | 5 invented | 0 — the gate greps real surefire output |
+| Wrong paths in reports | yes (`com/example/basket/`) | 0 |
+| Real gaps found | 0 | 3 |
+
+The single surviving expensive agent (74k) audited by **mutation testing** rather than by reading, and found three things that 354k of previous verification agents rubber-stamped:
+
+1. **Multi-item validation is untested.** Mutating the loop to validate only the first item leaves all 10 tests green. Code is correct; nothing locks it in.
+2. **`shouldReturnAccurateSubtotalWhenQuantitiesAreLarge` doesn't test what its name says.** 10,999,000 fits in an `int`; switching to `int` keeps all 10 green. Real overflow silently returns 200 with `subtotalCents: 0`.
+3. **The spec's own criterion-1 example is never fully asserted** — the 1750 test checks only `subtotalCents`.
+
+It also caught a genuine bug in my gate script (`grep -A1` bled the next slice's title into each evidence heading — fixed) and flagged that **port 8080 on this machine is held by an unrelated process** that answers every request with a `correlationId` envelope. `docs/demo-script.md` will silently hit the wrong server. I didn't touch that process.
+
+## Architecture now
+
+```
+main loop (driver, Bash available)
+  per slice:  test-writer agent → tdd-gate.sh red "<expected>" → code-writer agent → tdd-gate.sh green → done
+  once:       goal-evaluator agent (adversarial, mutation-tested)
+```
+
+Context isolation is fully preserved — test-writer never sees production code, code-writer sees only the failure output. That was always the real value; it was never in the verifiers.
+
+New artifacts: [lab/tdd-gate.sh](lab/tdd-gate.sh), [lab/state.json](lab/state.json). Five agent definitions are now dead code: `red-verifier`, `green-verifier`, `slice-verifier`, `slice-planner`, `tdd-goal-coordinator`.
+
+Three follow-ups, in the order I'd do them — say which you want:
+
+- **Close the 3 gaps** as a proper slice 4 (multi-item validation test, honest overflow test, full spec-example assertion)
+- **Delete the 5 dead agent definitions** and rewrite `AGENTS.md` to document the gate-based loop
+- **Fix the `@Service` wiring** — production wiring is currently shaped by a `@WebMvcTest` constraint, which also means no test boots the real context
+
+---
