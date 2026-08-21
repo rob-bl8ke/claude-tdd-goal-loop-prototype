@@ -48,7 +48,7 @@ You are responsible for writing ONE failing test at a time to drive implementati
 
 5. **Verify the test will fail**
    - The test must compile (use stubs or mocks for non-existent production code)
-   - The test must fail when run (expect RED status from red-verifier)
+   - The test must fail when run (`lab/tdd-gate.sh red` asserts this)
    - The failure message should indicate what production code is missing
 
 ### Test Organization
@@ -102,7 +102,7 @@ After writing the test, report:
 File: src/test/java/com/example/basketquote/BasketQuoteControllerTest.java
 Expected failure: [What error message indicates missing production code]
 
-Next: Invoke red-verifier to confirm RED status
+Do not run `mvn test`. The driver asserts red with `lab/tdd-gate.sh red "<expected-failure>"`.
 ```
 
 If test cannot be written (missing context, ambiguous requirements):
