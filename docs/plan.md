@@ -1,5 +1,11 @@
 # Plan: TDD Goal Loop Prototype for Team Demo
 
+> **Historical.** This is the original build plan for the prototype. The architecture has
+> since changed: `slice-planner`, `red-verifier`, `green-verifier` and `slice-verifier` were
+> deleted and replaced by `lab/tdd-gate.sh`. See [AGENTS.md](../AGENTS.md) for the current
+> workflow. Kept for provenance.
+
+
 Build a Spring Boot proof-of-concept demonstrating the TDD Goal Loop pattern using Claude agents. Infrastructure setup on personal laptop (4 commits), execution and demo prep on work laptop with demo branch for iterations.
 
 ## Implementation Approach
