@@ -24,17 +24,15 @@ The demo implements a simple Basket Quote API with three acceptance criteria (ca
 │   ├── demo-script.md               # Presentation flow for team demo
 │   └── troubleshooting.md           # Common issues and fixes
 ├── lab/
+│   ├── tdd-gate.sh                  # Deterministic red/green gate (replaces 4 agents)
+│   ├── state.json                   # Machine-readable run state
 │   ├── expected-slices.md           # Predefined slice sequence (3 slices)
-│   └── evidence.md                  # TDD execution audit trail
+│   └── evidence.md                  # TDD execution audit trail (written by the gate)
 ├── .claude/agents/                  # TDD Goal Loop agent definitions
-│   ├── tdd-goal-coordinator.md      # Main orchestrator (invoke as @tdd-goal-coordinator)
-│   ├── slice-planner.md             # Selects next uncompleted slice
+│   ├── tdd-goal-coordinator.md      # Driver playbook — the entry point
 │   ├── test-writer.md               # Writes failing tests
-│   ├── red-verifier.md              # Confirms test fails as expected
 │   ├── code-writer.md               # Implements minimal production code
-│   ├── green-verifier.md            # Confirms all tests pass
-│   ├── slice-verifier.md            # Verifies acceptance criterion met
-│   └── goal-evaluator.md            # Checks if all criteria complete
+│   └── goal-evaluator.md            # Adversarial final audit (runs once)
 └── src/
     ├── main/java/com/example/basketquote/
     │   ├── Application.java         # Spring Boot entry point
@@ -81,9 +79,9 @@ Each criterion includes example requests, responses, and expected HTTP status co
 
 Open [AGENTS.md](AGENTS.md) to understand the TDD Goal Loop workflow:
 
-- **8 specialized agents** (Orchestrator, Planner, Test-Writer, Red-Verifier, Code-Writer, Green-Verifier, Slice-Verifier, Goal-Evaluator)
-- **Agent responsibilities** (what each agent does and when it's invoked)
-- **Orchestration flow** (the complete Red-Green-Refactor cycle for each slice)
+- **3 judgement agents** (Test-Writer, Code-Writer, Goal-Evaluator) plus a deterministic gate
+- **Agent responsibilities** (what each does, and why verification is a script rather than an agent)
+- **Orchestration flow** (the red → green cycle for each slice, driven from the main context)
 
 #### 4. Review Execution Evidence
 
@@ -146,39 +144,44 @@ This enhancement is deferred to a future branch (not part of the current prototy
 
 ## TDD Goal Loop Agents
 
-### Orchestrator (`@tdd-goal-coordinator`)
+Three agents do judgement work. Verification is a shell script, not an agent — see
+[AGENTS.md](AGENTS.md) for why, and
+[.claude/agents/tdd-goal-coordinator.md](.claude/agents/tdd-goal-coordinator.md) for the
+operating procedure.
 
-Coordinates the overall workflow, invoking agents in sequence and capturing evidence.
+### Driver (`@tdd-goal-coordinator`)
 
-**Invocation:** `@tdd-goal-coordinator` for each slice (manually invoked per slice in current prototype)
+The entry point. Its instructions run **in the main context** — it is a playbook, not a
+subagent to be spawned. It reads `lab/state.json`, picks the next pending slice, and runs
+the red/green cycle.
 
-### Planner (`slice-planner`)
-
-Reads the acceptance criterion and creates a test plan (3-7 test cases in plain English).
+**Invocation:** `Invoke @.claude/agents/tdd-goal-coordinator.md @spec.md`
 
 ### Test-Writer (`test-writer`)
 
-Writes the next failing JUnit test using AssertJ assertions and BDD structure. **RULE: DO NOT edit production code.**
-
-### Red-Verifier (`red-verifier`)
-
-Confirms the new test fails as expected (red phase). Verifies compilation succeeds, specific test fails, and failure message is meaningful.
+Writes the failing tests for one acceptance criterion, using BDD structure and
+`should<Expected>When<Condition>` naming. **RULE: DO NOT touch production code.**
 
 ### Code-Writer (`code-writer`)
 
-Implements minimal production code to make the failing test pass (Fake It, Triangulate, or Obvious Implementation). **RULE: DO NOT edit tests.**
-
-### Green-Verifier (`green-verifier`)
-
-Confirms all tests pass, including the new one (green phase). Verifies build succeeds and no regressions occurred.
-
-### Slice-Verifier (`slice-verifier`)
-
-Verifies the acceptance criterion is fully implemented by re-running tests and checking observable API behavior. Updates [lab/evidence.md](lab/evidence.md).
+Implements the minimum production code to pass the supplied failures (Fake It, Triangulate,
+or Obvious Implementation). **RULE: DO NOT edit tests, and do not implement a later slice's
+concerns.**
 
 ### Goal-Evaluator (`goal-evaluator`)
 
-Checks if all acceptance criteria (1-3) are complete. Returns `GOAL_MET` when the workflow is finished.
+Runs **once**, after the final slice. Adversarially audits the implementation against the
+spec, verifying by mutation testing rather than by reading. Returns `GOAL_MET` or `NOT_MET`
+plus any gaps found.
+
+### The gate (not an agent)
+
+`lab/tdd-gate.sh reset | red "<expected>" | green | done <n> "<files>"`
+
+Runs `mvn test`, parses the summary, asserts red or green, and exits 1 with a reason on
+failure. Replaced four former agents (`red-verifier`, `green-verifier`, `slice-verifier`,
+`slice-planner`) at roughly 1/250th of the token cost, with no ability to hallucinate a test
+name it did not see.
 
 ## Acceptance Criteria
 
